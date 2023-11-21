@@ -118,9 +118,9 @@ just_little_bit AS (
         c3.name currency_name,
         t.*
     FROM "user" u
-        FULL JOIN balance b3 on u.id = b3.user_id
-        FULL JOIN currency c3 on b3.currency_id = c3.id
-        FULL JOIN together t ON t.balance_update = b3.updated
+        RIGHT JOIN balance b3 on u.id = b3.user_id
+        JOIN currency c3 on b3.currency_id = c3.id
+        JOIN together t ON t.balance_update = b3.updated
         AND t.currency_update = c3.updated
         AND t.money = b3.money
         AND b3.user_id = t.user_id
