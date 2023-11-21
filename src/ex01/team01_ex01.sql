@@ -60,59 +60,78 @@ ORDER BY 1 DESC,
     2,
     3;
 
-WITH foo AS (SELECT b.updated        balance_update,
-                    (SELECT CASE
-                                WHEN EXISTS(SELECT b.updated
-                                            FROM currency c
-                                            WHERE c.updated < b.updated
-                                              AND c.id = b.currency_id) THEN (SELECT c2.updated
-                                                                              FROM balance b2
-                                                                                       JOIN currency c2 on b.currency_id = c2.id
-                                                                              WHERE c2.updated < b.updated
-                                                                              ORDER BY 1 DESC
-                                                                              LIMIT 1)
-                                END) currency_update,
-                    money,
-                    b.user_id
-             FROM balance b),
-     boo AS (SELECT b.updated        balance_update,
-                    (SELECT CASE
-                                WHEN NOT EXISTS(SELECT b.updated
-                                                FROM currency c
-                                                WHERE c.updated < b.updated
-                                                  AND c.id = b.currency_id) THEN (SELECT c2.updated
-                                                                                  FROM balance b2
-                                                                                           JOIN currency c2 on b.currency_id = c2.id
-                                                                                  WHERE c2.updated > b.updated
-                                                                                  ORDER BY 1
-                                                                                  LIMIT 1)
-                                END) currency_update,
-                    money,
-                    b.user_id
-             FROM balance b
-             ORDER BY 3 DESC),
-     together AS (
-         SELECT *
-         FROM foo
-         WHERE currency_update IS NOT NULL
-         UNION
-         SELECT *
-         FROM boo
-         WHERE currency_update IS NOT NULL),
-     just_little_bit AS (SELECT COALESCE(u.name, 'not defined') name,
-                                         COALESCE(u.lastname, 'not defined') lastname,
-                                         c3.name currency_name,
-                                         t.*
-                         FROM "user" u
-                                  FULL JOIN balance b3 on u.id = b3.user_id
-                                  FULL JOIN currency c3 on b3.currency_id = c3.id
-                                  FULL JOIN together t
-                                       ON t.balance_update = b3.updated AND t.currency_update = c3.updated AND
-                                          t.money = b3.money AND b3.user_id = t.user_id)
+WITH foo AS (
+    SELECT b.updated balance_update,
+        (
+            SELECT CASE
+                    WHEN EXISTS(
+                        SELECT b.updated
+                        FROM currency c
+                        WHERE c.updated < b.updated
+                            AND c.id = b.currency_id
+                    ) THEN (
+                        SELECT c2.updated
+                        FROM balance b2
+                            JOIN currency c2 on b.currency_id = c2.id
+                        WHERE c2.updated < b.updated
+                        ORDER BY 1 DESC
+                        LIMIT 1
+                    )
+                END
+        ) currency_update, money, b.user_id
+    FROM balance b
+),
+boo AS (
+    SELECT b.updated balance_update,
+        (
+            SELECT CASE
+                    WHEN NOT EXISTS(
+                        SELECT b.updated
+                        FROM currency c
+                        WHERE c.updated < b.updated
+                            AND c.id = b.currency_id
+                    ) THEN (
+                        SELECT c2.updated
+                        FROM balance b2
+                            JOIN currency c2 on b.currency_id = c2.id
+                        WHERE c2.updated > b.updated
+                        ORDER BY 1
+                        LIMIT 1
+                    )
+                END
+        ) currency_update, money, b.user_id
+    FROM balance b
+    ORDER BY 3 DESC
+),
+together AS (
+    SELECT *
+    FROM foo
+    WHERE currency_update IS NOT NULL
+    UNION
+    SELECT *
+    FROM boo
+    WHERE currency_update IS NOT NULL
+),
+just_little_bit AS (
+    SELECT COALESCE(u.name, 'not defined') name,
+        COALESCE(u.lastname, 'not defined') lastname,
+        c3.name currency_name,
+        t.*
+    FROM "user" u
+        FULL JOIN balance b3 on u.id = b3.user_id
+        FULL JOIN currency c3 on b3.currency_id = c3.id
+        FULL JOIN together t ON t.balance_update = b3.updated
+        AND t.currency_update = c3.updated
+        AND t.money = b3.money
+        AND b3.user_id = t.user_id
+)
 SELECT jlb.name,
-       jlb.lastname,
-       jlb.currency_name,
-       jlb.money * c4.rate_to_usd currency_in_usd
+    jlb.lastname,
+    jlb.currency_name,
+    jlb.money * c4.rate_to_usd currency_in_usd
 FROM just_little_bit jlb
-         JOIN currency c4 ON c4.updated = jlb.currency_update AND c4.name = jlb.currency_name
-ORDER BY 1 DESC, 2, 3;
+    JOIN currency c4 ON c4.updated = jlb.currency_update
+    AND c4.name = jlb.currency_name
+ORDER BY 1 DESC,
+    2,
+    3;
